@@ -58,7 +58,7 @@ async def handle(req):
 			return web.Response('Bad gateway', 502)
 		if data['data']['resultType'] != 'matrix':
 			return web.Response('Bad gateway', 502)
-		data = data['data']['result']
+		metrics = data['data']['result']
 
 		'''
 		Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
@@ -71,7 +71,7 @@ async def handle(req):
 
 		NaN = float('nan')
 
-		for metric in data:
+		for metric in metrics:
 			vals = dict(metric['values'])
 			with_gaps = []
 			for k in range(start, end, pitch):
@@ -88,14 +88,14 @@ async def handle(req):
 		if chart['stacked']:
 			ax.stackplot(
 				keys,
-				[metric['values'] for metric in data],
+				[metric['values'] for metric in metrics],
 				labels = [
 					str(metric['metric'])
-					for metric in data
+					for metric in metrics
 				]
 			)
 		else:
-			for metric in data:
+			for metric in metrics:
 				ax.plot(
 					keys,
 					metric['values'],
