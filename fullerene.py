@@ -36,6 +36,16 @@ async def handle(req):
 
 	pitch = int((end-start) / w / dpi)
 
+	fig = plt.figure(figsize=(w, h), dpi=dpi)
+	ax = fig.add_subplot()
+	# XXX disabled for a number of reasons:
+	# - performance drop: https://github.com/matplotlib/matplotlib/issues/16550
+	# - it doesn't play well with multiline formatters
+	#fig.tight_layout(pad=0)
+	ax.margins(0)
+
+	ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
+
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote(chart['query']),
 		start, end, pitch,
@@ -75,16 +85,6 @@ async def handle(req):
 
 		keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
 
-		fig = plt.figure(figsize=(w, h), dpi=dpi)
-		ax = fig.add_subplot()
-		# XXX disabled for a number of reasons:
-		# - performance drop: https://github.com/matplotlib/matplotlib/issues/16550
-		# - it doesn't play well with multiline formatters
-		#fig.tight_layout(pad=0)
-		ax.margins(0)
-
-		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
-
 		if chart['stacked']:
 			ax.stackplot(
 				keys,
@@ -102,20 +102,20 @@ async def handle(req):
 					label = str(metric['metric']),
 				)
 
-		ax.legend()
-		ax.grid(True)
+	ax.legend()
+	ax.grid(True)
 
-		# TODO? rotate dates
-		# FIXME leftmost date occasionally gets clipped
-		#fig.autofmt_xdate()
+	# TODO? rotate dates
+	# FIXME leftmost date occasionally gets clipped
+	#fig.autofmt_xdate()
 
-		buf = BytesIO()
-		fig.savefig(buf, format='png')
+	buf = BytesIO()
+	fig.savefig(buf, format='png')
 
-		return web.Response(
-			body = buf.getbuffer(),
-			content_type = 'image/png',
-		)
+	return web.Response(
+		body = buf.getbuffer(),
+		content_type = 'image/png',
+	)
 
 session = ClientSession()
 
