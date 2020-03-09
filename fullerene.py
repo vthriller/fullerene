@@ -41,6 +41,7 @@ async def handle(request):
 			)
 
 		ax.legend()
+		ax.grid(True)
 
 		# TODO? rotate dates
 		# FIXME leftmost date occasionally gets clipped
