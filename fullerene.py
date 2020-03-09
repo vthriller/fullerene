@@ -5,6 +5,7 @@ from time import time
 from urllib.parse import quote
 import json
 from io import BytesIO
+from collections import namedtuple
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -13,14 +14,16 @@ from datetime import datetime as dt
 import matplotlib
 matplotlib.rc('font', size=9)
 
+Chart = namedtuple('Chart', ['queries', 'stacked'])
+
 charts = dict(
-	cpu = dict(
+	cpu = Chart(
 		queries = [
 			'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
 		],
 		stacked = True,
 	),
-	mem = dict(
+	mem = Chart(
 		queries = [
 			'node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}',
 			'node_memory_Shmem{instance="localhost:9100"}',
@@ -63,7 +66,7 @@ async def handle(req):
 	urls = [
 		'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 			quote(q), start, end, pitch,
-		) for q in chart['queries']
+		) for q in chart.queries
 	]
 	for response in await asyncio.gather(*[session.get(url) for url in urls]):
 		data = await response.text()
@@ -100,7 +103,7 @@ async def handle(req):
 
 	keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
 
-	if chart['stacked']:
+	if chart.stacked:
 		ax.stackplot(
 			keys,
 			[metric['values'] for metric in metrics],
