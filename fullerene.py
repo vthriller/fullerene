@@ -46,6 +46,8 @@ async def handle(req):
 
 	ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
 
+	metrics = []
+
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote(chart['query']),
 		start, end, pitch,
@@ -60,47 +62,47 @@ async def handle(req):
 			return web.Response('Bad gateway', 502)
 		metrics = data['data']['result']
 
-		'''
-		Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
-		Prometheus seems to always return data keyed at range(start, end, step),
-		skipping the keys that are missing from its backend.
+	'''
+	Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
+	Prometheus seems to always return data keyed at range(start, end, step),
+	skipping the keys that are missing from its backend.
 
-		Grafana seems to do just that:
-		https://github.com/grafana/grafana/blob/e68e93f595bd3d7265ee00e581c88c0391caccb4/public/app/plugins/datasource/prometheus/result_transformer.ts#L43
-		'''
+	Grafana seems to do just that:
+	https://github.com/grafana/grafana/blob/e68e93f595bd3d7265ee00e581c88c0391caccb4/public/app/plugins/datasource/prometheus/result_transformer.ts#L43
+	'''
 
-		NaN = float('nan')
+	NaN = float('nan')
 
+	for metric in metrics:
+		vals = dict(metric['values'])
+		with_gaps = []
+		for k in range(start, end, pitch):
+			v = vals.get(k)
+			if v is not None:
+				v = float(v)
+			else:
+				v = NaN
+			with_gaps.append(v)
+		metric['values'] = with_gaps
+
+	keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
+
+	if chart['stacked']:
+		ax.stackplot(
+			keys,
+			[metric['values'] for metric in metrics],
+			labels = [
+				str(metric['metric'])
+				for metric in metrics
+			]
+		)
+	else:
 		for metric in metrics:
-			vals = dict(metric['values'])
-			with_gaps = []
-			for k in range(start, end, pitch):
-				v = vals.get(k)
-				if v is not None:
-					v = float(v)
-				else:
-					v = NaN
-				with_gaps.append(v)
-			metric['values'] = with_gaps
-
-		keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
-
-		if chart['stacked']:
-			ax.stackplot(
+			ax.plot(
 				keys,
-				[metric['values'] for metric in metrics],
-				labels = [
-					str(metric['metric'])
-					for metric in metrics
-				]
+				metric['values'],
+				label = str(metric['metric']),
 			)
-		else:
-			for metric in metrics:
-				ax.plot(
-					keys,
-					metric['values'],
-					label = str(metric['metric']),
-				)
 
 	ax.legend()
 	ax.grid(True)
