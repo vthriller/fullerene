@@ -28,7 +28,7 @@ async def handle(request):
 		data = data['data']['result']
 
 		fig, ax = plt.subplots()
-		fig.tight_layout()
+		fig.tight_layout(pad=0)
 		ax.margins(0)
 
 		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
