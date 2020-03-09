@@ -15,7 +15,19 @@ matplotlib.rc('font', size=9)
 
 charts = dict(
 	cpu = dict(
-		query = 'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
+		queries = [
+			'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
+		],
+		stacked = True,
+	),
+	mem = dict(
+		queries = [
+			'node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}',
+			'node_memory_Shmem{instance="localhost:9100"}',
+			'node_memory_Dirty{instance="localhost:9100"} + node_memory_Writeback{instance="localhost:9100"}',
+			'node_memory_Buffers{instance="localhost:9100"} + node_memory_Cached{instance="localhost:9100"} - node_memory_Shmem{instance="localhost:9100"} - node_memory_Dirty{instance="localhost:9100"} - node_memory_Writeback{instance="localhost:9100"}',
+			'node_memory_MemFree{instance="localhost:9100"}',
+		],
 		stacked = True,
 	),
 )
@@ -48,11 +60,12 @@ async def handle(req):
 
 	metrics = []
 
-	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
-		quote(chart['query']),
-		start, end, pitch,
-	)
-	async with session.get(url) as response:
+	urls = [
+		'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
+			quote(q), start, end, pitch,
+		) for q in chart['queries']
+	]
+	for response in await asyncio.gather(*[session.get(url) for url in urls]):
 		data = await response.text()
 
 		data = json.loads(data)
@@ -60,7 +73,7 @@ async def handle(req):
 			return web.Response('Bad gateway', 502)
 		if data['data']['resultType'] != 'matrix':
 			return web.Response('Bad gateway', 502)
-		metrics = data['data']['result']
+		metrics += data['data']['result']
 
 	'''
 	Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
