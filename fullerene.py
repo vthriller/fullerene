@@ -4,6 +4,8 @@ import asyncio
 from time import time
 from urllib.parse import quote
 import json
+import matplotlib.pyplot as plt
+from io import BytesIO
 
 async def handle(request):
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
@@ -14,18 +16,32 @@ async def handle(request):
 	)
 	async with session.get(url) as response:
 		data = await response.text()
+
 		data = json.loads(data)
 		if data['status'] != 'success':
 			return web.Response('Bad gateway', 502)
 		if data['data']['resultType'] != 'matrix':
 			return web.Response('Bad gateway', 502)
 		data = data['data']['result']
+
+		fig, ax = plt.subplots()
+
 		for metric in data:
-			metric['values'] = [
-				(k, float(v))
-				for k, v in metric['values']
-			]
-		return web.Response(text=json.dumps(data))
+			ax.plot(
+				[k for k, _ in metric['values']],
+				[float(v) for _, v in metric['values']],
+				label = str(metric['metric']),
+			)
+
+		ax.legend()
+
+		buf = BytesIO()
+		fig.savefig(buf, format='png')
+
+		return web.Response(
+			body = buf.getbuffer(),
+			content_type = 'image/png',
+		)
 
 session = ClientSession()
 
