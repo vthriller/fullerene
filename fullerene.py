@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime as dt
 
+import matplotlib
+matplotlib.rc('font', size=9)
+
 async def handle(request):
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote('sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)'),
