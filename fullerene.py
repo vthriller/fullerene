@@ -13,7 +13,14 @@ from datetime import datetime as dt
 import matplotlib
 matplotlib.rc('font', size=9)
 
-async def handle(request):
+async def handle(req):
+	w = int(req.query.get('w', 800))
+	h = int(req.query.get('h', 480))
+	# and now, matplotlib quirks
+	dpi = 100.
+	w /= dpi
+	h /= dpi
+
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote('sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)'),
 		time() - 3600,
@@ -30,7 +37,8 @@ async def handle(request):
 			return web.Response('Bad gateway', 502)
 		data = data['data']['result']
 
-		fig, ax = plt.subplots()
+		fig = plt.figure(figsize=(w, h), dpi=dpi)
+		ax = fig.add_subplot()
 		fig.tight_layout(pad=0)
 		ax.margins(0)
 
