@@ -44,13 +44,15 @@ async def handle(req):
 		data = data['data']['result']
 
 		'''
-		Fill the gaps in the data returned with None, so lines get split into multiple where data is missing.
+		Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
 		Prometheus seems to always return data keyed at range(start, end, step),
 		skipping the keys that are missing from its backend.
 
 		Grafana seems to do just that:
 		https://github.com/grafana/grafana/blob/e68e93f595bd3d7265ee00e581c88c0391caccb4/public/app/plugins/datasource/prometheus/result_transformer.ts#L43
 		'''
+
+		NaN = float('nan')
 
 		for metric in data:
 			vals = dict(metric['values'])
@@ -59,6 +61,8 @@ async def handle(req):
 				v = vals.get(k)
 				if v is not None:
 					v = float(v)
+				else:
+					v = NaN
 				with_gaps.append(v)
 			metric['values'] = with_gaps
 
