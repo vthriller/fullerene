@@ -6,6 +6,7 @@ from urllib.parse import quote
 import json
 from io import BytesIO
 from collections import namedtuple
+from string import Template
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -15,21 +16,40 @@ import matplotlib
 matplotlib.rc('font', size=9)
 
 Chart = namedtuple('Chart', ['queries', 'stacked'])
+Query = namedtuple('Query', ['query', 'label'])
 
 charts = dict(
 	cpu = Chart(
 		queries = [
-			'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
+			Query(
+				query = 'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
+				label = '$mode',
+			),
 		],
 		stacked = True,
 	),
 	mem = Chart(
 		queries = [
-			'node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}',
-			'node_memory_Shmem{instance="localhost:9100"}',
-			'node_memory_Dirty{instance="localhost:9100"} + node_memory_Writeback{instance="localhost:9100"}',
-			'node_memory_Buffers{instance="localhost:9100"} + node_memory_Cached{instance="localhost:9100"} - node_memory_Shmem{instance="localhost:9100"} - node_memory_Dirty{instance="localhost:9100"} - node_memory_Writeback{instance="localhost:9100"}',
-			'node_memory_MemFree{instance="localhost:9100"}',
+			Query(
+				query = 'node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}',
+				label = 'used',
+			),
+			Query(
+				query = 'node_memory_Shmem{instance="localhost:9100"}',
+				label = 'shared + tmpfs',
+			),
+			Query(
+				query = 'node_memory_Dirty{instance="localhost:9100"} + node_memory_Writeback{instance="localhost:9100"}',
+				label = 'cached dirty',
+			),
+			Query(
+				query = 'node_memory_Buffers{instance="localhost:9100"} + node_memory_Cached{instance="localhost:9100"} - node_memory_Shmem{instance="localhost:9100"} - node_memory_Dirty{instance="localhost:9100"} - node_memory_Writeback{instance="localhost:9100"}',
+				label = 'cached clean',
+			),
+			Query(
+				query = 'node_memory_MemFree{instance="localhost:9100"}',
+				label = 'free',
+			),
 		],
 		stacked = True,
 	),
@@ -65,10 +85,16 @@ async def handle(req):
 
 	urls = [
 		'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
-			quote(q), start, end, pitch,
+			quote(q.query), start, end, pitch,
 		) for q in chart.queries
 	]
-	for response in await asyncio.gather(*[session.get(url) for url in urls]):
+	templates = [Template(q.label) for q in chart.queries]
+	for response, tmpl in zip(
+		await asyncio.gather(*[
+			session.get(url) for url in urls
+		]),
+		templates,
+	):
 		data = await response.text()
 
 		data = json.loads(data)
@@ -76,7 +102,12 @@ async def handle(req):
 			return web.Response('Bad gateway', 502)
 		if data['data']['resultType'] != 'matrix':
 			return web.Response('Bad gateway', 502)
-		metrics += data['data']['result']
+		data = data['data']['result']
+
+		for metric in data:
+			metric['metric'] = tmpl.safe_substitute(metric['metric'])
+
+		metrics += data
 
 	'''
 	Fill the gaps in the data returned with NaN, so lines get split into multiple where data is missing.
@@ -108,7 +139,7 @@ async def handle(req):
 			keys,
 			[metric['values'] for metric in metrics],
 			labels = [
-				str(metric['metric'])
+				metric['metric']
 				for metric in metrics
 			]
 		)
