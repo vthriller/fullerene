@@ -13,7 +13,16 @@ from datetime import datetime as dt
 import matplotlib
 matplotlib.rc('font', size=9)
 
+charts = dict(
+	cpu = dict(
+		query = 'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
+		stacked = True,
+	),
+)
+
 async def handle(req):
+	chart = charts[req.match_info.get('chart')]
+
 	w = int(req.query.get('w', 800))
 	h = int(req.query.get('h', 480))
 	# and now, matplotlib quirks
@@ -27,10 +36,8 @@ async def handle(req):
 
 	pitch = int((end-start) / w / dpi)
 
-	stacked = int(req.query.get('stacked', 1))
-
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
-		quote('sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)'),
+		quote(chart['query']),
 		start, end, pitch,
 	)
 	async with session.get(url) as response:
@@ -75,7 +82,7 @@ async def handle(req):
 
 		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
 
-		if stacked:
+		if chart['stacked']:
 			ax.stackplot(
 				keys,
 				[metric['values'] for metric in data],
@@ -111,7 +118,7 @@ session = ClientSession()
 
 app = web.Application()
 app.add_routes([
-	web.get('/', handle),
+	web.get('/chart/{chart}', handle),
 ])
 
 web.run_app(app, host='127.0.0.1', port=12345)
