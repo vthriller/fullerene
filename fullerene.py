@@ -69,12 +69,13 @@ async def handle(req):
 
 		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
 
-		for metric in data:
-			ax.plot(
-				keys,
-				metric['values'],
-				label = str(metric['metric']),
-			)
+		if 1:
+			for metric in data:
+				ax.plot(
+					keys,
+					metric['values'],
+					label = str(metric['metric']),
+				)
 
 		ax.legend()
 		ax.grid(True)
