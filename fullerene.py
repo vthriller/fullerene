@@ -41,6 +41,27 @@ async def handle(req):
 			return web.Response('Bad gateway', 502)
 		data = data['data']['result']
 
+		'''
+		Fill the gaps in the data returned with None, so lines get split into multiple where data is missing.
+		Prometheus seems to always return data keyed at range(start, end, step),
+		skipping the keys that are missing from its backend.
+
+		Grafana seems to do just that:
+		https://github.com/grafana/grafana/blob/e68e93f595bd3d7265ee00e581c88c0391caccb4/public/app/plugins/datasource/prometheus/result_transformer.ts#L43
+		'''
+
+		for metric in data:
+			vals = dict(metric['values'])
+			with_gaps = []
+			for k in range(start, end, pitch):
+				v = vals.get(k)
+				if v is not None:
+					v = float(v)
+				with_gaps.append(v)
+			metric['values'] = with_gaps
+
+		keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
+
 		fig = plt.figure(figsize=(w, h), dpi=dpi)
 		ax = fig.add_subplot()
 		fig.tight_layout(pad=0)
@@ -50,8 +71,8 @@ async def handle(req):
 
 		for metric in data:
 			ax.plot(
-				[dt.fromtimestamp(k) for k, _ in metric['values']],
-				[float(v) for _, v in metric['values']],
+				keys,
+				metric['values'],
 				label = str(metric['metric']),
 			)
 
