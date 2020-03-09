@@ -4,8 +4,11 @@ import asyncio
 from time import time
 from urllib.parse import quote
 import json
-import matplotlib.pyplot as plt
 from io import BytesIO
+
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from datetime import datetime as dt
 
 async def handle(request):
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
@@ -28,14 +31,20 @@ async def handle(request):
 		fig.tight_layout()
 		ax.margins(0)
 
+		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
+
 		for metric in data:
 			ax.plot(
-				[k for k, _ in metric['values']],
+				[dt.fromtimestamp(k) for k, _ in metric['values']],
 				[float(v) for _, v in metric['values']],
 				label = str(metric['metric']),
 			)
 
 		ax.legend()
+
+		# TODO? rotate dates
+		# FIXME leftmost date occasionally gets clipped
+		#fig.autofmt_xdate()
 
 		buf = BytesIO()
 		fig.savefig(buf, format='png')
