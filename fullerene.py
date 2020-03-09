@@ -27,6 +27,8 @@ async def handle(req):
 
 	pitch = int((end-start) / w / dpi)
 
+	stacked = int(req.query.get('stacked', 1))
+
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote('sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)'),
 		start, end, pitch,
@@ -69,7 +71,16 @@ async def handle(req):
 
 		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
 
-		if 1:
+		if stacked:
+			ax.stackplot(
+				keys,
+				[metric['values'] for metric in data],
+				labels = [
+					str(metric['metric'])
+					for metric in data
+				]
+			)
+		else:
 			for metric in data:
 				ax.plot(
 					keys,
