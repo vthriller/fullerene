@@ -25,9 +25,11 @@ async def handle(req):
 	end = int(req.query.get('end', now))
 	start = int(req.query.get('start', end - 3600))
 
+	pitch = int((end-start) / w / dpi)
+
 	url = 'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
 		quote('sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)'),
-		start, end, 5,
+		start, end, pitch,
 	)
 	async with session.get(url) as response:
 		data = await response.text()
