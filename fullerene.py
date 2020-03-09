@@ -5,8 +5,8 @@ from time import time
 from urllib.parse import quote
 import json
 from io import BytesIO
-from collections import namedtuple
 from string import Template
+import yaml
 
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -15,45 +15,7 @@ from datetime import datetime as dt
 import matplotlib
 matplotlib.rc('font', size=9)
 
-Chart = namedtuple('Chart', ['queries', 'stacked'])
-Query = namedtuple('Query', ['query', 'label'])
-
-charts = dict(
-	cpu = Chart(
-		queries = [
-			Query(
-				query = 'sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)',
-				label = '$mode',
-			),
-		],
-		stacked = True,
-	),
-	mem = Chart(
-		queries = [
-			Query(
-				query = 'node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}',
-				label = 'used',
-			),
-			Query(
-				query = 'node_memory_Shmem{instance="localhost:9100"}',
-				label = 'shared + tmpfs',
-			),
-			Query(
-				query = 'node_memory_Dirty{instance="localhost:9100"} + node_memory_Writeback{instance="localhost:9100"}',
-				label = 'cached dirty',
-			),
-			Query(
-				query = 'node_memory_Buffers{instance="localhost:9100"} + node_memory_Cached{instance="localhost:9100"} - node_memory_Shmem{instance="localhost:9100"} - node_memory_Dirty{instance="localhost:9100"} - node_memory_Writeback{instance="localhost:9100"}',
-				label = 'cached clean',
-			),
-			Query(
-				query = 'node_memory_MemFree{instance="localhost:9100"}',
-				label = 'free',
-			),
-		],
-		stacked = True,
-	),
-)
+charts = yaml.safe_load(open('charts.yaml'))
 
 async def handle(req):
 	chart = charts[req.match_info.get('chart')]
@@ -85,10 +47,10 @@ async def handle(req):
 
 	urls = [
 		'http://127.0.0.1:9090/api/v1/query_range?query={}&start={}&end={}&step={}'.format(
-			quote(q.query), start, end, pitch,
-		) for q in chart.queries
+			quote(q['query']), start, end, pitch,
+		) for q in chart['queries']
 	]
-	templates = [Template(q.label) for q in chart.queries]
+	templates = [Template(q['label']) for q in chart['queries']]
 	for response, tmpl in zip(
 		await asyncio.gather(*[
 			session.get(url) for url in urls
@@ -134,7 +96,7 @@ async def handle(req):
 
 	keys = [dt.fromtimestamp(k) for k in range(start, end, pitch)]
 
-	if chart.stacked:
+	if chart['stacked']:
 		ax.stackplot(
 			keys,
 			[metric['values'] for metric in metrics],

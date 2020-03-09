@@ -1,0 +1,18 @@
+cpu:
+  stacked: yes
+  queries:
+  - query: sum(rate(node_cpu{instance="localhost:9100"} [5m])) by (mode)
+    label: $mode
+mem:
+  stacked: yes
+  queries:
+  - query: node_memory_MemTotal{instance="localhost:9100"} - node_memory_MemFree{instance="localhost:9100"} - node_memory_Buffers{instance="localhost:9100"} - node_memory_Cached{instance="localhost:9100"}
+    label: used
+  - query: node_memory_Shmem{instance="localhost:9100"}
+    label: shared + tmpfs
+  - query: node_memory_Dirty{instance="localhost:9100"} + node_memory_Writeback{instance="localhost:9100"}
+    label: cached dirty
+  - query: node_memory_Buffers{instance="localhost:9100"} + node_memory_Cached{instance="localhost:9100"} - node_memory_Shmem{instance="localhost:9100"} - node_memory_Dirty{instance="localhost:9100"} - node_memory_Writeback{instance="localhost:9100"}
+    label: cached clean
+  - query: node_memory_MemFree{instance="localhost:9100"}
+    label: free
