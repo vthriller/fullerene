@@ -25,6 +25,8 @@ async def handle(request):
 		data = data['data']['result']
 
 		fig, ax = plt.subplots()
+		fig.tight_layout()
+		ax.margins(0)
 
 		for metric in data:
 			ax.plot(
