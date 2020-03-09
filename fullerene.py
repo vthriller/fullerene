@@ -77,7 +77,10 @@ async def handle(req):
 
 		fig = plt.figure(figsize=(w, h), dpi=dpi)
 		ax = fig.add_subplot()
-		fig.tight_layout(pad=0)
+		# XXX disabled for a number of reasons:
+		# - performance drop: https://github.com/matplotlib/matplotlib/issues/16550
+		# - it doesn't play well with multiline formatters
+		#fig.tight_layout(pad=0)
 		ax.margins(0)
 
 		ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d\n%H:%M'))
